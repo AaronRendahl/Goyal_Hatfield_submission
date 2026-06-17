@@ -54,7 +54,29 @@ weibull <- function(x, Asym, Drop, lrc, pwr) {
 # broom::tidy(mx) |> select(term, est=estimate, se=std.error)
 # vcov(mx)
 
-#####
+#### just get fits #################
+fitWeibull <- function(dx, Temp, start) {
+  if(!missing(Temp)) {
+    if(Temp=="4") {
+      start <- c(Asym=0, Drop=-4, lrc=-2, pwr=1)
+    } else {
+      start <- c(Asym=0, Drop=-(max(dx$Titer)-min(dx$Titer)), lrc=-2, pwr=1)
+    }
+  }
+  nls(Titer ~ weibull(Time, Asym, Drop, lrc, pwr), data=dx,
+            start = start,
+            lower=c(0,-Inf, -Inf, -Inf), upper=c(Inf, 0, Inf, Inf),
+            algorithm="port")
+}
+
+d |> nest(.by=c(Temp, Surface, Subtype, Group)) |> 
+  mutate(model=map2(data, Temp, fitWeibull),
+         coef=map(model, \(x) as_tibble_row(coef(x)))) |>
+  unnest(coef) |>
+  select(-c(data, model)) |>
+  writexl::write_xlsx("model_coefs.xlsx")
+
+#### do simulation ##########################
 simAUC <- function(dx, show=FALSE, N=2000,
                    #start=c(Asym=0, Drop=-4, lrc=-2, pwr=1) # for 4
                    start=c(Asym=0, Drop=-(max(dx$Titer)-min(dx$Titer)), lrc=-2, pwr=1) # for RT
