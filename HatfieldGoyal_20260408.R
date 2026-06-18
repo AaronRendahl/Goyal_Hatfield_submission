@@ -21,6 +21,9 @@ d <- bind_rows(
   mutate(Surface=factor(Surface, levels=c("Media", "PBS", "AL", "PP", "PVC", "SS",
                                           "NL", "CB", "FB", "SF", "WO", "RB"))) |>
   filter(Time!=24)
+levels(d$Surface) <- c("Media", "PBS", "Aluminum", "Plastic", "PVC", "Stainless Steel", 
+  "Nasal Lavage", "Cardboard", "Fabric", "Styrofoam", "Wood", "Rubber")
+# plot4 and plot2
 
 weibull <- function(x, Asym, Drop, lrc, pwr) {
   Asym-Drop*exp(-exp(lrc)*x^pwr)  
@@ -162,6 +165,10 @@ if(!file.exists(simfile)) {
   write_rds(fits, file=sprintf("sim_%s.RDS", temp_code))
 }
 fits <- read_rds(simfile)
+#levels(fits$Surface)
+levels(fits$Surface) <- c("Media", "PBS", "Aluminum", "Plastic", "PVC", "Stainless Steel", 
+                       "Nasal Lavage", "Cardboard", "Fabric", "Styrofoam", "Wood", "Rubber")
+
 
 f1s <- fits |> select(Temp, Surface, Subtype, Group, fit) |> unnest(fit) |> select(-Titer) |>
   pivot_longer(starts_with("sim_"), names_to='Sim', values_to='Titer') |>
@@ -218,8 +225,9 @@ px3 <- ggplot(fits) + aes(Surface, AUC, color=Subtype) +
                   position=position_dodge(width=0.3)) +
   ylab("AUC (95% CI)") +
   labs(title=temp_text)  +
-  theme(legend.position = "bottom")
-ggsave(px3, filename=sprintf("%s_plot3_AUC.pdf", temp_code), width=6, height=4)
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle=45, hjust=1))
+ggsave(px3, filename=sprintf("%s_plot3_AUC.pdf", temp_code), width=6, height=4.5)
 
 
 ztest <- function(m1, m2, s1, s2) {
@@ -247,7 +255,7 @@ getpairwise <- function(ff, n="results") {
   out
 }
 
-day3 <- c("NL", "PBS")
+day3 <- c("Nasal Lavage", "PBS")
 
 ffA <- fits |> select(Temp, Surface, Subtype, Group, AUC, seAUC) |>
   arrange(AUC) |>
@@ -276,7 +284,7 @@ px4 <- ggplot(fitsx) + aes(Surface, AUC, color=Group) +
   facet_wrap(.~Subtype) +
   geom_pointrange(aes(y=AUC, ymin=AUC-z95*seAUC, ymax=AUC+z95*seAUC),
                   position=position_dodge(width=0.3)) +
-  ylab("Normalized AUC (95% CI)") +
+  ylab("Normalized AUC (95% CI)") + xlab(NULL) +
   labs(title=temp_text)  +
   theme(legend.position = "bottom") +
   scale_x_discrete(limits=rev) +
@@ -293,10 +301,10 @@ fx <- ff3$`Day3-AUC` |>
 px4b <- ggplot(fitsx) + aes(X, AUC, color=Subtype) + 
   geom_pointrange(aes(y=AUC, ymin=AUC-z95*seAUC, ymax=AUC+z95*seAUC),
                   position=position_dodge(width=0.3)) +
-  ylab("Normalized AUC (95% CI)") +
+  ylab("Normalized AUC (95% CI)") + 
   labs(title=temp_text)  +
   theme(legend.position = "bottom") +
-  scale_x_discrete(limits=rev, name="Surface / Subtype") +
+  scale_x_discrete(limits=rev, name=NULL) + #name="Surface / Subtype") +
   coord_flip()
 px4btxt <-px4b + geom_text(aes(label=.group), y=Inf, data=fx, color="black", size=8/.pt, hjust=1)
 ggsave(px4b, filename=sprintf("%s_plot4bx_AUC_compare.pdf", temp_code), width=4, height=3)
