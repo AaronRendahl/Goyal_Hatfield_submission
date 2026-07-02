@@ -320,3 +320,41 @@ px5 <- ggplot(f1) + aes(Time, TiterNorm, color=Surface) +
 ggsave(px5, filename=sprintf("%s_plot5_AUC_overlap.pdf", temp_code), width=6, height=4)
 
 }
+
+
+fits <- tibble(temp_code=c("TR", "T4")) |> mutate(data=map(temp_code, \(x) read_rds(sprintf("sim_%s.RDS", x)))) |>
+  unnest(data) 
+  
+levels(fits$Surface) <- c("Media", "PBS", "Aluminum", "Plastic", "PVC", "Stainless Steel", 
+                          "Nasal Lavage", "Cardboard", "Fabric", "Styrofoam", "Wood", "Rubber")
+
+f1s <- fits |> select(Temp, Surface, Subtype, Group, fit) |> unnest(fit) |> select(-Titer) |>
+  pivot_longer(starts_with("sim_"), names_to='Sim', values_to='Titer') |>
+  mutate(Sim=as.integer(str_remove(Sim, "sim_"))) |>
+  mutate(Titer0=Titer[Time==0], TiterNorm=Titer/Titer0,
+         .by=c(Temp, Surface, Subtype, Group, Sim)) |>
+  mutate(G=sprintf("%s_%s_%s_%03d", Temp, Surface, Subtype, Sim) |> factor(), .after='Sim') |>
+  mutate(Hours=Time*if_else(Temp=="4", 24, 1), Days=Hours/24)
+f1 <- fits |> select(Temp, Surface, Subtype, Group, fit) |> unnest(fit) |> select(-starts_with("sim")) |>
+  mutate(Titer0=Titer[Time==0], TiterNorm=Titer/Titer0,
+         .by=c(Temp, Surface, Subtype, Group)) |>
+  mutate(Hours=Time*if_else(Temp=="4", 24, 1), Days=Hours/24)
+f1ci <- f1s |> summarize(Titer_lwr=quantile(Titer, 0.025), Titer_upr=quantile(Titer, 0.975),
+                         TiterNorm_lwr=quantile(TiterNorm, 0.025), TiterNorm_upr=quantile(TiterNorm, 0.975),
+                         .by=c(Temp, Surface, Subtype, Group, Time, Hours, Days))
+labs <- f1 |> distinct(Hours, Days) |> mutate(label=if_else(Days<1, sprintf("%0.0f hours", Hours), sprintf("%0.0f days", Days)))
+
+px2 <- ggplot() + aes(Hours, TiterNorm, color=Subtype, linetype = Temp) + 
+  scale_x_sqrt(breaks=labs$Hours, labels=labs$label) +
+  facet_wrap( ~ Surface, nrow=2) +
+  geom_ribbon(data=f1ci, aes(y=NULL, ymin=TiterNorm_lwr, ymax=TiterNorm_upr, fill=Subtype), linewidth=0, alpha=0.5) +
+  geom_line(data=f1) +
+  #annotate(x=0.2, y=0.4, label="AUC (\u00B1 SE)", hjust=0, size=10/.pt, geom="text") +
+  #geom_text(aes(label=sprintf("%0.2f \u00B1 %0.2f", AUC, seAUC), x=0.2, y=0.2+(Subtype=='A')*0.1), data=fits,
+  #          hjust=0, size=10/.pt) +
+  scale_y_continuous(breaks=seq(0,1,by=0.2), labels=scales::label_percent()) +
+  #scale_x_continuous(breaks=xb) +
+  labs(title=sprintf("Rescaled Weibull curves"),
+       y="Normalized Titer (to Time 0)") +
+  theme(legend.position = "bottom", axis.text.x = element_text(angle=45, hjust=1))
+ggsave(px2, filename="plot2_NormAUC.pdf", width=12, height=5)
