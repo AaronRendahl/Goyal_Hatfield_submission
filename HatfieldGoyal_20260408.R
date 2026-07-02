@@ -342,10 +342,10 @@ f1 <- fits |> select(Temp, Surface, Subtype, Group, fit) |> unnest(fit) |> selec
 f1ci <- f1s |> summarize(Titer_lwr=quantile(Titer, 0.025), Titer_upr=quantile(Titer, 0.975),
                          TiterNorm_lwr=quantile(TiterNorm, 0.025), TiterNorm_upr=quantile(TiterNorm, 0.975),
                          .by=c(Temp, Surface, Subtype, Group, Time, Hours, Days))
-labs <- f1 |> distinct(Hours, Days) |> mutate(label=if_else(Days<1, sprintf("%0.0f hours", Hours), sprintf("%0.0f days", Days)))
+labs <- f1 |> distinct(Hours, Days) |> mutate(label=if_else(Days<1, sprintf("%0.0fh", Hours), sprintf("%0.0fd", Days)))
 
-px2 <- ggplot() + aes(Hours, TiterNorm, color=Subtype, linetype = Temp) + 
-  scale_x_sqrt(breaks=labs$Hours, labels=labs$label) +
+px2 <- ggplot() + aes(factor(Hours), TiterNorm, color=Subtype, linetype = Temp, group=paste(Subtype, Temp)) + 
+  scale_x_discrete(breaks=factor(labs$Hours), labels=labs$label, name="Time") +
   facet_wrap( ~ Surface, nrow=2) +
   geom_ribbon(data=f1ci, aes(y=NULL, ymin=TiterNorm_lwr, ymax=TiterNorm_upr, fill=Subtype), linewidth=0, alpha=0.5) +
   geom_line(data=f1) +
@@ -356,5 +356,5 @@ px2 <- ggplot() + aes(Hours, TiterNorm, color=Subtype, linetype = Temp) +
   #scale_x_continuous(breaks=xb) +
   labs(title=sprintf("Rescaled Weibull curves"),
        y="Normalized Titer (to Time 0)") +
-  theme(legend.position = "bottom", axis.text.x = element_text(angle=45, hjust=1))
+  theme(legend.position = "bottom", axis.text.x = element_text(angle=90, hjust=1))
 ggsave(px2, filename="plot2_NormAUC.pdf", width=12, height=5)
